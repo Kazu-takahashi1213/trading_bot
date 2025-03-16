@@ -9,25 +9,30 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 
-# Bybit API から仮想通貨の価格データを取得
-def get_historical_data(symbol="BTCUSDT", interval=60, limit=500):
-    url = "https://api.bybit.com/v5/market/kline"
+# Binance API から仮想通貨の価格データを取得
+def get_binance_data(symbol="BTCUSDT", interval="1h", limit=500):
+    url = "https://api.binance.com/api/v3/klines"
     params = {"symbol": symbol, "interval": interval, "limit": limit}
     response = requests.get(url, params=params)
-    data = response.json()
-    if "result" in data:
-        df = pd.DataFrame(data["result"]["list"], columns=["timestamp", "open", "high", "low", "close", "volume", "turnover"])
+    
+    if response.status_code == 200:
+        data = response.json()
+        df = pd.DataFrame(data, columns=[
+            "timestamp", "open", "high", "low", "close", "volume",
+            "close_time", "quote_asset_volume", "number_of_trades",
+            "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"
+        ])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         df.set_index("timestamp", inplace=True)
-        df = df.astype(float)
+        df = df[["open", "high", "low", "close", "volume"]].astype(float)
         return df
     else:
-        raise ValueError("APIからデータ取得失敗")
+        raise ValueError(f"Binance API からデータ取得失敗: {response.status_code}")
 
-# データ取得
-df = get_historical_data()
+# Binance API からデータ取得
+df = get_binance_data()
 
-# 価格データの可視化
+# 📌 価格データの可視化
 plt.figure(figsize=(12, 5))
 plt.plot(df["close"], label="BTCUSDT Price", color="blue")
 plt.xlabel("Time")
@@ -36,19 +41,19 @@ plt.legend()
 plt.title("Bitcoin Price Trend")
 plt.show()
 
-# GARCH（ボラティリティ予測）
+# 📌 GARCH（ボラティリティ予測）
 returns = df["close"].pct_change().dropna()
 garch_model = arch_model(returns, vol="Garch", p=1, q=1)
 garch_result = garch_model.fit(disp="off")
 forecast = garch_result.forecast(start=len(returns), horizon=10)
 predicted_volatility = forecast.variance.values[-1] ** 0.5
 
-# ARIMA（短期価格予測）
+# 📌 ARIMA（短期価格予測）
 arima_model = ARIMA(df["close"], order=(5, 1, 0))
 arima_result = arima_model.fit()
 forecast_price = arima_result.forecast(steps=10)
 
-# LSTM（長期トレンド予測）
+# 📌 LSTM（長期トレンド予測）
 lookback = 60
 X, y = [], []
 for i in range(lookback, len(df)):
@@ -65,16 +70,16 @@ model = Sequential([
 model.compile(optimizer="adam", loss="mse")
 model.fit(X, y, epochs=5, batch_size=16, verbose=0)
 
-# 予測
+# 📌 予測
 last_60 = df["close"].values[-lookback:].reshape(1, lookback, 1)
 lstm_predicted_price = model.predict(last_60)[0][0]
 
-# 結果を出力
-print(f"📊 GARCH 予測ボラティリティ: {predicted_volatility:.6f}")
-print(f"📈 ARIMA 予測価格: {forecast_price.iloc[-1]:.2f}")
-print(f"🤖 LSTM 予測価格: {lstm_predicted_price:.2f}")
+# 📌 結果を出力
+print(f"GARCH 予測ボラティリティ: {predicted_volatility:.6f}")
+print(f"ARIMA 予測価格: {forecast_price.iloc[-1]:.2f}")
+print(f"LSTM 予測価格: {lstm_predicted_price:.2f}")
 
-# 予測結果のプロット
+# 📌 予測結果のプロット
 plt.figure(figsize=(12, 5))
 plt.plot(df.index[-100:], df["close"].values[-100:], label="Real Price", color="blue")
 plt.axhline(y=forecast_price.iloc[-1], color="red", linestyle="dashed", label="ARIMA Prediction")
