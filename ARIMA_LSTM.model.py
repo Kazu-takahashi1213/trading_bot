@@ -101,10 +101,10 @@ if __name__ == '__main__':
     print(f'Last golden cross signal: {"BUY" if last_signal==1 else "SELL" if last_signal==-1 else "HOLD"}')
 
     if last_signal == 1 and predicted_return > 0:
-        print('Executing buy order...')
+        print('Executing buy order.')
         session.place_order(symbol='BTCUSDT', side='Buy', qty=0.01, order_type='Market')
     elif last_signal == -1 and predicted_return < 0:
-        print('Executing sell order...')
+        print('Executing sell order.')
         session.place_order(symbol='BTCUSDT', side='Sell', qty=0.01, order_type='Market')
     else:
         print('No trade executed.')
